@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>卡牌计分器</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, button, select { margin: 5px; padding: 5px; }
+    .section { margin-bottom: 20px; }
+    .player-row { display: flex; gap: 10px; align-items: center; }
+    .player-row input { width: 100px; }
+    table { border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 6px 12px; }
+  </style>
+</head>
+<body>
+  <h1>卡牌计分器</h1>
+
+  <div class="section" id="setup">
+    <label>玩家人数：<input type="number" id="playerCount" min="1" /></label>
+    <button onclick="setPlayerCount()">设置</button>
+    <div id="nameInputs"></div>
+    <label>最大牌数：<input type="number" id="maxCardValue" value="13" min="1" /></label>
+    <br />
+    <button onclick="confirmSetup()">开始游戏</button>
+  </div>
+
+  <div class="section" id="game" style="display:none">
+    <h3>第 <span id="roundNumber">1</span> 轮</h3>
+    <div id="cardInputs"></div>
+    <button onclick="submitRound()">提交</button>
+    <button onclick="undoRound()">撤销</button>
+
+    <h4>当前得分</h4>
+    <table id="scoreTable"></table>
+
+    <h4>历史记录</h4>
+    <div id="history"></div>
+  </div>
+
+  <script>
+    let playerCount = 0;
+    let playerNames = [];
+    let scores = [];
+    let roundResults = [];
+    let cardHistory = [];
+    let roundNumber = 1;
+    let maxCardValue = 13;
+
+    function setPlayerCount() {
+      playerCount = parseInt(document.getElementById('playerCount').value);
+      const container = document.getElementById('nameInputs');
+      container.innerHTML = '';
+      for (let i = 0; i < playerCount; i++) {
+        const input = document.createElement('input');
+        input.placeholder = `玩家${i + 1}名字`;
+        input.id = `name${i}`;
+        container.appendChild(input);
+      }
+    }
+
+    function confirmSetup() {
+      playerNames = [];
+      for (let i = 0; i < playerCount; i++) {
+        const name = document.getElementById(`name${i}`).value;
+        if (!name) return alert('请填写所有名字');
+        playerNames.push(name);
+      }
+      scores = Array(playerCount).fill(0);
+      maxCardValue = parseInt(document.getElementById('maxCardValue').value);
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      updateInputFields();
+      updateScoreTable();
+    }
+
+    function updateInputFields() {
+      const container = document.getElementById('cardInputs');
+      container.innerHTML = '';
+      for (let i = 0; i < playerCount; i++) {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML = `
+          <label>${playerNames[i]}:</label>
+          <input type="number" id="card${i}" min="0" max="${maxCardValue}" />
+        `;
+        container.appendChild(row);
+      }
+    }
+
+    function calculateScores(cards) {
+      const scores = Array(playerCount).fill(0);
+      for (let i = 0; i < playerCount; i++) {
+        for (let j = 0; j < playerCount; j++) {
+          if (i === j) continue;
+          let diff = cards[j] - cards[i];
+          const absDiff = Math.abs(diff);
+          if (absDiff >= 10 && absDiff < 13) diff *= 2;
+          else if (absDiff === 13) diff *= 3;
+          scores[i] += diff;
+        }
+      }
+      return scores;
+    }
+
+    function submitRound() {
+      const cards = [];
+      for (let i = 0; i < playerCount; i++) {
+        const val = parseInt(document.getElementById(`card${i}`).value);
+        if (isNaN(val) || val < 0 || val > maxCardValue) return alert('输入无效');
+        cards.push(val);
+      }
+
+      const roundScore = calculateScores(cards);
+      scores = scores.map((s, i) => s + roundScore[i]);
+
+      roundResults.push(roundScore);
+      cardHistory.push(cards);
+      roundNumber++;
+
+      updateInputFields();
+      updateScoreTable();
+      updateHistory();
+      document.getElementById('roundNumber').innerText = roundNumber;
+    }
+
+    function undoRound() {
+      if (roundResults.length === 0) return;
+      const lastScore = roundResults.pop();
+      const lastCards = cardHistory.pop();
+      scores = scores.map((s, i) => s - lastScore[i]);
+      roundNumber--;
+      updateInputFields();
+      updateScoreTable();
+      updateHistory();
+      document.getElementById('roundNumber').innerText = roundNumber;
+    }
+
+    function updateScoreTable() {
+      const table = document.getElementById('scoreTable');
+      table.innerHTML = '<tr><th>玩家</th><th>得分</th></tr>' +
+        playerNames.map((name, i) => `
+          <tr><td>${name}</td><td>${scores[i]}</td></tr>
+        `).join('');
+    }
+
+    function updateHistory() {
+      const div = document.getElementById('history');
+      div.innerHTML = roundResults.map((score, round) => `
+        <div>第${round + 1}轮：${score.map((s, i) => `${playerNames[i]}(${s})`).join(', ')}</div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>
